@@ -12,6 +12,7 @@ import { UI } from "./js/utils/UI.js";
 import { SoundManager } from "./js/utils/SoundManager.js";
 import { ParticleSystem } from "./js/utils/ParticleSystem.js";
 import { CustomWater } from "./js/utils/CustomWater.js";
+import { AdvancedWaterShader } from "./js/shaders/AdvancedWaterShader.js";
 
 // Game state
 let socket;
@@ -622,34 +623,22 @@ function createScene() {
   scene.environment = renderTarget.texture;
 
   // Create water with custom shader
-  console.log("Creating custom water shader...");
-  const waterGeometry = new THREE.PlaneGeometry(10000, 10000, 100, 100);
-
-  // Use our custom water implementation
+  console.log("Creating advanced water shader...");
   try {
-    water = new CustomWater(waterGeometry, {
-      textureWidth: 1024,
-      textureHeight: 1024,
-      waterNormals: assets.textures.water,
-      sunDirection: sun.clone().normalize(),
-      sunColor: 0xffffff,
-      waterColor: 0x0088ff,
-      deepWaterColor: 0x001e3f,
-      distortionScale: 3.7,
-      fog: scene.fog !== undefined,
-      waveHeight: 1.0,
-      waveSpeed: 1.0,
-      reflectivity: 0.8,
-    });
+    // Create the advanced water shader
+    const advancedWater = new AdvancedWaterShader(renderer, scene, camera);
+    water = advancedWater.getWaterMesh();
 
-    water.rotation.x = -Math.PI / 2;
-    scene.add(water);
-    console.log("Custom water shader created and added to scene");
+    // Store the advanced water shader for updates
+    window.advancedWater = advancedWater;
+
+    console.log("Advanced water shader created successfully");
   } catch (error) {
-    console.error("Error creating custom water:", error);
+    console.error("Error creating advanced water shader:", error);
 
-    // Fallback to standard water if custom water fails
+    // Fall back to standard water if advanced shader fails
     console.log("Falling back to standard water...");
+    const waterGeometry = new THREE.PlaneGeometry(10000, 10000, 100, 100);
     water = new Water(waterGeometry, {
       textureWidth: 1024,
       textureHeight: 1024,
@@ -931,6 +920,11 @@ function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+
+  // Update advanced water shader if available
+  if (window.advancedWater) {
+    window.advancedWater.resize(window.innerWidth, window.innerHeight);
+  }
 }
 
 // Animation loop
@@ -941,13 +935,16 @@ function animate() {
     // Update water with dynamic wave patterns
     const time = performance.now() * 0.001;
 
-    // Update water animation
-    if (water && water.update) {
-      // Update water animation
+    // Update advanced water shader if available
+    if (window.advancedWater) {
+      window.advancedWater.update(time);
+    }
+    // Otherwise update standard water if available
+    else if (water && water.update) {
       water.update(time);
 
       // Update environment map every 10 frames for better performance
-      if (Math.floor(time * 60) % 10 === 0) {
+      if (Math.floor(time * 60) % 10 === 0 && water.updateEnvironmentMap) {
         water.updateEnvironmentMap(renderer, scene);
       }
     }
@@ -956,36 +953,36 @@ function animate() {
     if (worldState && worldState.wind && water) {
       const windStrength = worldState.wind.strength || 0.5;
 
-      // Set wave height based on wind strength
+      // Set wave height based on wind strength if using standard water
       if (water.setWaveHeight) {
         water.setWaveHeight(0.5 + windStrength * 1.5);
       }
 
-      // Set wave speed based on wind strength
+      // Set wave speed based on wind strength if using standard water
       if (water.setWaveSpeed) {
         water.setWaveSpeed(0.5 + windStrength);
       }
 
-      // Adjust wave direction based on wind direction
+      // Adjust wave direction based on wind direction if using standard water
       if (worldState.wind.direction !== undefined && water.setWaveDirection) {
         const windDir = worldState.wind.direction;
         water.setWaveDirection(
           new THREE.Vector2(Math.cos(windDir), Math.sin(windDir))
         );
+      }
 
-        // Gradually rotate sun position based on time of day
-        const sunPhi = THREE.MathUtils.degToRad(90 - 20); // Fixed elevation at 20 degrees
-        const sunTheta = windDir + Math.PI + Math.sin(time * 0.1) * 0.2; // Slight variation
-
-        sun.setFromSphericalCoords(1, sunPhi, sunTheta);
-
-        if (sky && sky.material && sky.material.uniforms) {
-          sky.material.uniforms["sunPosition"].value.copy(sun);
+      // Update advanced water shader with wind data
+      if (window.advancedWater && window.advancedWater.uniforms) {
+        if (worldState.wind.direction !== undefined) {
+          window.advancedWater.uniforms.waveDir.value.set(
+            Math.cos(worldState.wind.direction),
+            Math.sin(worldState.wind.direction)
+          );
         }
 
-        if (water.setSunDirection) {
-          water.setSunDirection(sun.clone().normalize());
-        }
+        window.advancedWater.uniforms.waveHeight.value =
+          0.3 + windStrength * 0.7;
+        window.advancedWater.uniforms.waveSpeed.value = 0.5 + windStrength;
       }
     }
 
@@ -1031,11 +1028,43 @@ function animate() {
     particleSystem.update();
   }
 
+  // Render the scene
   renderer.render(scene, camera);
 }
 
 // Update water properties based on server data
 function updateWaterProperties(waterData) {
+  // For advanced water shader
+  if (window.advancedWater && window.advancedWater.uniforms) {
+    // Update refraction based on turbulence
+    if (waterData.turbulence !== undefined) {
+      window.advancedWater.uniforms.refraction.value =
+        0.01 + waterData.turbulence * 0.05;
+    }
+
+    // Update wave height
+    if (waterData.waveHeight !== undefined) {
+      window.advancedWater.uniforms.waveHeight.value = waterData.waveHeight;
+    }
+
+    // Update wave speed
+    if (waterData.waveSpeed !== undefined) {
+      window.advancedWater.uniforms.waveSpeed.value = waterData.waveSpeed;
+    }
+
+    // Update wave direction
+    if (waterData.waveDirection !== undefined) {
+      window.advancedWater.uniforms.waveDir.value.set(
+        Math.cos(waterData.waveDirection),
+        Math.sin(waterData.waveDirection)
+      );
+    }
+
+    console.log("Advanced water properties updated:", waterData);
+    return;
+  }
+
+  // For standard water
   if (!water) return;
 
   // Update wave height
@@ -1058,7 +1087,7 @@ function updateWaterProperties(waterData) {
     );
   }
 
-  console.log("Water properties updated:", waterData);
+  console.log("Standard water properties updated:", waterData);
 }
 
 // Start the game
