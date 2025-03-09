@@ -16,6 +16,7 @@ import { ParticleSystem } from "./js/utils/ParticleSystem.js";
 let socket;
 let scene, camera, renderer, controls;
 let water, sky, sun;
+let waterUniforms;
 let playerShip;
 let otherPlayers = {};
 let inputHandler;
@@ -294,50 +295,82 @@ function createFallbackTexture() {
     )
   ) {
     // Create a realistic water normal map
-    context.fillStyle = "#7f7f7f"; // Neutral normal color (pointing up)
+
+    // Fill with neutral normal (pointing up)
+    context.fillStyle = "#7f7f7f";
     context.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Create wave patterns
-    for (let i = 0; i < 10; i++) {
-      // Random wave parameters
-      const amplitude = 20 + Math.random() * 20;
-      const frequency = 0.01 + Math.random() * 0.02;
-      const phase = Math.random() * Math.PI * 2;
-      const direction = Math.random() * Math.PI * 2;
-      const dx = Math.cos(direction);
-      const dy = Math.sin(direction);
+    // Create a more realistic ocean wave pattern
+    const createOceanNormals = () => {
+      // Create multiple layers of waves
+      for (let layer = 0; layer < 3; layer++) {
+        const scale = 1 + layer * 2; // Different scales for each layer
+        const amplitude = 30 / (layer + 1); // Decreasing amplitude for higher frequencies
 
-      // Draw wave pattern
-      context.strokeStyle = `rgba(255, 255, 255, ${0.1 + Math.random() * 0.2})`;
-      context.lineWidth = 1 + Math.random() * 3;
+        // Create wave patterns in multiple directions
+        for (let dir = 0; dir < 4; dir++) {
+          const angle = (dir / 4) * Math.PI * 2 + (layer * Math.PI) / 6;
+          const dx = Math.cos(angle);
+          const dy = Math.sin(angle);
 
-      for (let j = 0; j < canvas.height; j += 4) {
-        context.beginPath();
-        for (let i = 0; i < canvas.width; i++) {
-          const x = i;
-          const y =
-            j + Math.sin((x * dx + j * dy) * frequency + phase) * amplitude;
+          // Draw wave pattern
+          for (let y = 0; y < canvas.height; y += 4) {
+            context.beginPath();
 
-          if (i === 0) {
-            context.moveTo(x, y);
-          } else {
-            context.lineTo(x, y);
+            for (let x = 0; x < canvas.width; x++) {
+              // Create wave pattern
+              const phase = layer * 7 + dir * 13;
+              const frequency = 0.01 * scale;
+
+              // Combine multiple sine waves for more natural look
+              const waveHeight =
+                Math.sin((x * dx + y * dy) * frequency + phase) * amplitude +
+                Math.sin((x * dx + y * dy) * frequency * 2.1 + phase * 1.7) *
+                  (amplitude * 0.5) +
+                Math.sin((x * dx + y * dy) * frequency * 3.7 + phase * 2.3) *
+                  (amplitude * 0.25);
+
+              const posY = y + waveHeight;
+
+              if (x === 0) {
+                context.moveTo(x, posY);
+              } else {
+                context.lineTo(x, posY);
+              }
+            }
+
+            // Use a semi-transparent stroke to blend waves
+            context.strokeStyle = `rgba(255, 255, 255, ${
+              0.05 + 0.05 / (layer + 1)
+            })`;
+            context.lineWidth = 1.5;
+            context.stroke();
           }
         }
-        context.stroke();
       }
-    }
 
-    // Add some noise for small details
-    for (let i = 0; i < 10000; i++) {
-      const x = Math.random() * canvas.width;
-      const y = Math.random() * canvas.height;
-      const size = 1 + Math.random() * 2;
-      const brightness = 127 + Math.random() * 128;
+      // Add noise for small details
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
 
-      context.fillStyle = `rgb(${brightness}, ${brightness}, ${brightness})`;
-      context.fillRect(x, y, size, size);
-    }
+      for (let i = 0; i < data.length; i += 4) {
+        // Add subtle noise to all channels
+        const noise = (Math.random() - 0.5) * 20;
+        data[i] = Math.max(0, Math.min(255, data[i] + noise)); // R
+        data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + noise)); // G
+        data[i + 2] = 127; // B - keep blue channel neutral for normal map
+        // Don't modify alpha channel
+      }
+
+      context.putImageData(imageData, 0, 0);
+
+      // Apply a slight blur for smoother normals
+      context.filter = "blur(1px)";
+      context.drawImage(canvas, 0, 0);
+      context.filter = "none";
+    };
+
+    createOceanNormals();
   } else {
     // Draw a gradient for other textures
     const gradient = context.createLinearGradient(0, 0, 256, 256);
@@ -553,7 +586,10 @@ function createScene() {
   controls.maxDistance = 200;
   controls.update();
 
-  // Create water
+  // Create sun vector for lighting and water reflections
+  sun = new THREE.Vector3();
+
+  // Create water with advanced shader
   const waterGeometry = new THREE.PlaneGeometry(10000, 10000, 100, 100);
   water = new Water(waterGeometry, {
     textureWidth: 1024,
@@ -561,38 +597,21 @@ function createScene() {
     waterNormals: assets.textures.water,
     sunDirection: new THREE.Vector3(),
     sunColor: 0xffffff,
-    waterColor: 0x0064b5,
-    distortionScale: 8.0,
+    waterColor: 0x001e0f,
+    distortionScale: 3.7,
     fog: scene.fog !== undefined,
-    alpha: 0.9,
-    reflectivity: 0.9,
-    clipBias: 0.0,
-    size: 4.0,
-    waveSpeed: 1.5,
-    waveHeight: 0.3,
+    size: 1.0,
   });
   water.rotation.x = -Math.PI / 2;
   scene.add(water);
 
-  // Add water animation to the update loop
-  const waterUniforms = water.material.uniforms;
-
-  // Create a mirror surface for reflections
-  const mirrorParameters = {
-    clipBias: 0.003,
-    textureWidth: 1024,
-    textureHeight: 1024,
-    color: 0x777777,
-    recursion: 1,
-  };
+  // Store water uniforms for animation
+  waterUniforms = water.material.uniforms;
 
   // Create sky
   sky = new Sky();
   sky.scale.setScalar(10000);
   scene.add(sky);
-
-  // Add sun
-  sun = new THREE.Vector3();
 
   // Configure sky
   const skyUniforms = sky.material.uniforms;
@@ -613,7 +632,14 @@ function createScene() {
   sun.setFromSphericalCoords(1, phi, theta);
 
   skyUniforms["sunPosition"].value.copy(sun);
-  water.material.uniforms["sunDirection"].value.copy(sun).normalize();
+  waterUniforms["sunDirection"].value.copy(sun).normalize();
+
+  // Create environment map for reflections
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  const sceneEnv = new THREE.Scene();
+  sceneEnv.add(sky);
+  const renderTarget = pmremGenerator.fromScene(sceneEnv);
+  scene.environment = renderTarget.texture;
 
   // Add ambient light
   const ambientLight = new THREE.AmbientLight(0x404040, 2);
@@ -891,20 +917,38 @@ function animate() {
   if (gameStarted) {
     // Update water with dynamic wave patterns
     const time = performance.now() * 0.001;
-    waterUniforms["time"].value = time;
+
+    // Update water animation
+    if (waterUniforms) {
+      waterUniforms["time"].value = time;
+    }
 
     // Make waves higher when wind is stronger
-    if (worldState && worldState.wind) {
+    if (worldState && worldState.wind && waterUniforms) {
       const windStrength = worldState.wind.strength || 0.5;
-      waterUniforms["distortionScale"].value = 3.0 + windStrength * 5.0;
+
+      // Adjust distortion scale based on wind strength
+      if (waterUniforms["distortionScale"]) {
+        waterUniforms["distortionScale"].value = 3.0 + windStrength * 5.0;
+      }
 
       // Adjust wave direction based on wind direction
-      if (waterUniforms["waveDirection"]) {
-        const windDir = worldState.wind.direction || 0;
-        waterUniforms["waveDirection"].value.set(
-          Math.cos(windDir),
-          Math.sin(windDir)
-        );
+      if (worldState.wind.direction !== undefined) {
+        const windDir = worldState.wind.direction;
+
+        // Gradually rotate sun position based on time of day
+        const sunPhi = THREE.MathUtils.degToRad(90 - 20); // Fixed elevation at 20 degrees
+        const sunTheta = windDir + Math.PI + Math.sin(time * 0.1) * 0.2; // Slight variation
+
+        sun.setFromSphericalCoords(1, sunPhi, sunTheta);
+
+        if (sky && sky.material && sky.material.uniforms) {
+          sky.material.uniforms["sunPosition"].value.copy(sun);
+        }
+
+        if (waterUniforms["sunDirection"]) {
+          waterUniforms["sunDirection"].value.copy(sun).normalize();
+        }
       }
     }
 
@@ -955,31 +999,16 @@ function animate() {
 
 // Update water properties based on server data
 function updateWaterProperties(waterData) {
-  if (!water || !water.material || !water.material.uniforms) return;
-
-  const uniforms = water.material.uniforms;
-
-  // Update wave height
-  if (waterData.waveHeight !== undefined && uniforms.size) {
-    uniforms.size.value = waterData.waveHeight * 4.0;
-  }
-
-  // Update wave speed
-  if (waterData.waveSpeed !== undefined && uniforms.speed) {
-    uniforms.speed.value = waterData.waveSpeed;
-  }
-
-  // Update wave direction
-  if (waterData.waveDirection !== undefined && uniforms.waveDirection) {
-    uniforms.waveDirection.value.set(
-      Math.cos(waterData.waveDirection),
-      Math.sin(waterData.waveDirection)
-    );
-  }
+  if (!water || !waterUniforms) return;
 
   // Update distortion scale based on turbulence
-  if (waterData.turbulence !== undefined && uniforms.distortionScale) {
-    uniforms.distortionScale.value = waterData.turbulence * 10.0;
+  if (waterData.turbulence !== undefined && waterUniforms["distortionScale"]) {
+    waterUniforms["distortionScale"].value = waterData.turbulence * 10.0;
+  }
+
+  // Update wave size
+  if (waterData.waveHeight !== undefined && waterUniforms["size"]) {
+    waterUniforms["size"].value = waterData.waveHeight * 4.0;
   }
 
   console.log("Water properties updated:", waterData);
