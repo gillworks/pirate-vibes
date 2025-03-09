@@ -31,6 +31,7 @@ let playerData = {
     color: "#8B4513",
   },
 };
+let worldState;
 
 // Assets to load
 const assetsToLoad = [
@@ -282,30 +283,83 @@ function createFallbackTexture() {
 
   // Create a canvas
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
+  canvas.width = 512;
+  canvas.height = 512;
   const context = canvas.getContext("2d");
 
-  // Draw a gradient
-  const gradient = context.createLinearGradient(0, 0, 256, 256);
-  gradient.addColorStop(0, "#1a3c5a");
-  gradient.addColorStop(1, "#0a1525");
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, 256, 256);
+  // For water normals, we need a specific pattern
+  if (
+    assetsToLoad.find(
+      (asset) => asset.name === "water" && asset.type === "texture"
+    )
+  ) {
+    // Create a realistic water normal map
+    context.fillStyle = "#7f7f7f"; // Neutral normal color (pointing up)
+    context.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Draw a grid
-  context.strokeStyle = "#ffffff";
-  context.lineWidth = 1;
-  for (let i = 0; i < 256; i += 32) {
-    context.beginPath();
-    context.moveTo(0, i);
-    context.lineTo(256, i);
-    context.stroke();
+    // Create wave patterns
+    for (let i = 0; i < 10; i++) {
+      // Random wave parameters
+      const amplitude = 20 + Math.random() * 20;
+      const frequency = 0.01 + Math.random() * 0.02;
+      const phase = Math.random() * Math.PI * 2;
+      const direction = Math.random() * Math.PI * 2;
+      const dx = Math.cos(direction);
+      const dy = Math.sin(direction);
 
-    context.beginPath();
-    context.moveTo(i, 0);
-    context.lineTo(i, 256);
-    context.stroke();
+      // Draw wave pattern
+      context.strokeStyle = `rgba(255, 255, 255, ${0.1 + Math.random() * 0.2})`;
+      context.lineWidth = 1 + Math.random() * 3;
+
+      for (let j = 0; j < canvas.height; j += 4) {
+        context.beginPath();
+        for (let i = 0; i < canvas.width; i++) {
+          const x = i;
+          const y =
+            j + Math.sin((x * dx + j * dy) * frequency + phase) * amplitude;
+
+          if (i === 0) {
+            context.moveTo(x, y);
+          } else {
+            context.lineTo(x, y);
+          }
+        }
+        context.stroke();
+      }
+    }
+
+    // Add some noise for small details
+    for (let i = 0; i < 10000; i++) {
+      const x = Math.random() * canvas.width;
+      const y = Math.random() * canvas.height;
+      const size = 1 + Math.random() * 2;
+      const brightness = 127 + Math.random() * 128;
+
+      context.fillStyle = `rgb(${brightness}, ${brightness}, ${brightness})`;
+      context.fillRect(x, y, size, size);
+    }
+  } else {
+    // Draw a gradient for other textures
+    const gradient = context.createLinearGradient(0, 0, 256, 256);
+    gradient.addColorStop(0, "#1a3c5a");
+    gradient.addColorStop(1, "#0a1525");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 256, 256);
+
+    // Draw a grid
+    context.strokeStyle = "#ffffff";
+    context.lineWidth = 1;
+    for (let i = 0; i < 256; i += 32) {
+      context.beginPath();
+      context.moveTo(0, i);
+      context.lineTo(256, i);
+      context.stroke();
+
+      context.beginPath();
+      context.moveTo(i, 0);
+      context.lineTo(i, 256);
+      context.stroke();
+    }
   }
 
   // Create texture from canvas
@@ -500,19 +554,37 @@ function createScene() {
   controls.update();
 
   // Create water
-  const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
+  const waterGeometry = new THREE.PlaneGeometry(10000, 10000, 100, 100);
   water = new Water(waterGeometry, {
-    textureWidth: 512,
-    textureHeight: 512,
+    textureWidth: 1024,
+    textureHeight: 1024,
     waterNormals: assets.textures.water,
     sunDirection: new THREE.Vector3(),
     sunColor: 0xffffff,
-    waterColor: 0x001e0f,
-    distortionScale: 3.7,
+    waterColor: 0x0064b5,
+    distortionScale: 8.0,
     fog: scene.fog !== undefined,
+    alpha: 0.9,
+    reflectivity: 0.9,
+    clipBias: 0.0,
+    size: 4.0,
+    waveSpeed: 1.5,
+    waveHeight: 0.3,
   });
   water.rotation.x = -Math.PI / 2;
   scene.add(water);
+
+  // Add water animation to the update loop
+  const waterUniforms = water.material.uniforms;
+
+  // Create a mirror surface for reflections
+  const mirrorParameters = {
+    clipBias: 0.003,
+    textureWidth: 1024,
+    textureHeight: 1024,
+    color: 0x777777,
+    recursion: 1,
+  };
 
   // Create sky
   sky = new Sky();
@@ -570,6 +642,7 @@ function connectToServer() {
 
   socket.on("gameState", (data) => {
     playerId = data.selfId;
+    worldState = data.worldState;
 
     // Create player ship
     createPlayerShip(data.players[playerId], data.ships[playerId]);
@@ -583,6 +656,11 @@ function connectToServer() {
 
     // Update wind indicator
     updateWindIndicator(data.worldState.wind);
+
+    // Update water properties if available
+    if (data.worldState.water) {
+      updateWaterProperties(data.worldState.water);
+    }
   });
 
   socket.on("playerJoined", (data) => {
@@ -682,7 +760,17 @@ function connectToServer() {
   });
 
   socket.on("windChanged", (windData) => {
+    if (worldState) {
+      worldState.wind = windData;
+    }
     updateWindIndicator(windData);
+  });
+
+  socket.on("waterChanged", (waterData) => {
+    if (worldState) {
+      worldState.water = waterData;
+    }
+    updateWaterProperties(waterData);
   });
 }
 
@@ -801,8 +889,24 @@ function animate() {
   requestAnimationFrame(animate);
 
   if (gameStarted) {
-    // Update water
-    water.material.uniforms["time"].value += 1.0 / 60.0;
+    // Update water with dynamic wave patterns
+    const time = performance.now() * 0.001;
+    waterUniforms["time"].value = time;
+
+    // Make waves higher when wind is stronger
+    if (worldState && worldState.wind) {
+      const windStrength = worldState.wind.strength || 0.5;
+      waterUniforms["distortionScale"].value = 3.0 + windStrength * 5.0;
+
+      // Adjust wave direction based on wind direction
+      if (waterUniforms["waveDirection"]) {
+        const windDir = worldState.wind.direction || 0;
+        waterUniforms["waveDirection"].value.set(
+          Math.cos(windDir),
+          Math.sin(windDir)
+        );
+      }
+    }
 
     // Update player ship
     if (playerShip) {
@@ -813,11 +917,33 @@ function animate() {
       cameraOffset.applyQuaternion(playerShip.quaternion);
       camera.position.copy(playerShip.position).add(cameraOffset);
       camera.lookAt(playerShip.position);
+
+      // Make ship bob with the waves
+      if (playerShip.position.y === 0) {
+        // If ship is at water level
+        const waveHeight =
+          Math.sin(time * 2) * 0.2 + Math.sin(time * 3.7) * 0.1;
+        playerShip.position.y = waveHeight;
+        playerShip.rotation.x = Math.sin(time * 2) * 0.01;
+        playerShip.rotation.z = Math.sin(time * 2.3) * 0.01;
+      }
     }
 
-    // Update other players
+    // Update other players with wave motion
     for (const id in otherPlayers) {
       otherPlayers[id].update();
+
+      // Make other ships bob with the waves too
+      if (otherPlayers[id].position.y === 0) {
+        const waveHeight =
+          Math.sin(time * 2 + parseInt(id.substr(0, 3), 16)) * 0.2 +
+          Math.sin(time * 3.7 + parseInt(id.substr(3, 3), 16)) * 0.1;
+        otherPlayers[id].position.y = waveHeight;
+        otherPlayers[id].rotation.x =
+          Math.sin(time * 2 + parseInt(id.substr(0, 3), 16)) * 0.01;
+        otherPlayers[id].rotation.z =
+          Math.sin(time * 2.3 + parseInt(id.substr(3, 3), 16)) * 0.01;
+      }
     }
 
     // Update particle systems
@@ -825,6 +951,38 @@ function animate() {
   }
 
   renderer.render(scene, camera);
+}
+
+// Update water properties based on server data
+function updateWaterProperties(waterData) {
+  if (!water || !water.material || !water.material.uniforms) return;
+
+  const uniforms = water.material.uniforms;
+
+  // Update wave height
+  if (waterData.waveHeight !== undefined && uniforms.size) {
+    uniforms.size.value = waterData.waveHeight * 4.0;
+  }
+
+  // Update wave speed
+  if (waterData.waveSpeed !== undefined && uniforms.speed) {
+    uniforms.speed.value = waterData.waveSpeed;
+  }
+
+  // Update wave direction
+  if (waterData.waveDirection !== undefined && uniforms.waveDirection) {
+    uniforms.waveDirection.value.set(
+      Math.cos(waterData.waveDirection),
+      Math.sin(waterData.waveDirection)
+    );
+  }
+
+  // Update distortion scale based on turbulence
+  if (waterData.turbulence !== undefined && uniforms.distortionScale) {
+    uniforms.distortionScale.value = waterData.turbulence * 10.0;
+  }
+
+  console.log("Water properties updated:", waterData);
 }
 
 // Start the game

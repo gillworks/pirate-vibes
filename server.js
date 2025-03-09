@@ -11,6 +11,12 @@ const worldState = {
     direction: Math.random() * Math.PI * 2, // Random direction in radians
     strength: 0.5 + Math.random() * 0.5, // Random strength between 0.5 and 1.0
   },
+  water: {
+    waveHeight: 0.5 + Math.random() * 0.5, // Random wave height between 0.5 and 1.0
+    waveSpeed: 0.8 + Math.random() * 0.4, // Random wave speed between 0.8 and 1.2
+    waveDirection: Math.random() * Math.PI * 2, // Random wave direction
+    turbulence: 0.2 + Math.random() * 0.3, // Random turbulence between 0.2 and 0.5
+  },
   time: Date.now(),
 };
 
@@ -207,6 +213,27 @@ setInterval(() => {
   // Broadcast the updated wind to all players
   io.emit("windChanged", worldState.wind);
 }, 30000); // Update every 30 seconds
+
+// Update the water state periodically
+setInterval(() => {
+  // Gradually change water properties
+  worldState.water.waveHeight = Math.max(
+    0.2,
+    Math.min(1.5, worldState.water.waveHeight + (Math.random() - 0.5) * 0.1)
+  );
+  worldState.water.waveSpeed = Math.max(
+    0.5,
+    Math.min(1.5, worldState.water.waveSpeed + (Math.random() - 0.5) * 0.05)
+  );
+  worldState.water.waveDirection += (Math.random() - 0.5) * 0.05;
+  worldState.water.turbulence = Math.max(
+    0.1,
+    Math.min(0.8, worldState.water.turbulence + (Math.random() - 0.5) * 0.05)
+  );
+
+  // Broadcast the updated water state to all players
+  io.emit("waterChanged", worldState.water);
+}, 45000); // Update every 45 seconds
 
 // Helper functions for game mechanics
 function checkCannonHit(shooterId, direction, position) {
