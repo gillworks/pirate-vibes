@@ -1,0 +1,473 @@
+/* Global Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande",
+    "Lucida Sans", Arial, sans-serif;
+}
+
+body {
+  overflow: hidden;
+  background-color: #0a0a0a;
+  color: #f0f0f0;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Loading Screen */
+#loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom, #1a2a3a, #0a1525);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.loading-container {
+  width: 80%;
+  max-width: 500px;
+}
+
+.loading-container h1 {
+  font-size: 3rem;
+  margin-bottom: 2rem;
+  color: #f0d080;
+  text-shadow: 0 0 10px rgba(240, 208, 128, 0.5);
+  font-family: "Pirata One", cursive, "Trebuchet MS";
+}
+
+.loading-bar-container {
+  width: 100%;
+  height: 20px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  border: 2px solid #f0d080;
+}
+
+#loading-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(to right, #f0d080, #f0a030);
+  transition: width 0.3s ease-out;
+}
+
+#loading-text {
+  font-size: 1.2rem;
+  color: #f0d080;
+}
+
+/* Login Screen */
+#login-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: url("assets/login-bg.jpg") no-repeat center center;
+  background-size: cover;
+  z-index: 900;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-container {
+  background-color: rgba(10, 20, 30, 0.8);
+  border-radius: 10px;
+  padding: 2rem;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  border: 2px solid #f0d080;
+}
+
+.login-container h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  color: #f0d080;
+  text-align: center;
+  font-family: "Pirata One", cursive, "Trebuchet MS";
+}
+
+.login-container h2 {
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+  color: #f0f0f0;
+  text-align: center;
+  font-weight: normal;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #f0d080;
+  font-size: 1.1rem;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 0.8rem;
+  border-radius: 5px;
+  border: 1px solid #f0d080;
+  background-color: rgba(240, 240, 240, 0.1);
+  color: #f0f0f0;
+  font-size: 1rem;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #f0a030;
+  box-shadow: 0 0 5px rgba(240, 160, 48, 0.5);
+}
+
+.color-picker {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+}
+
+.color-option {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.2s;
+}
+
+.color-option:hover {
+  transform: scale(1.1);
+}
+
+.color-option.selected {
+  border-color: #f0f0f0;
+  transform: scale(1.1);
+}
+
+#start-game {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(to right, #f0d080, #f0a030);
+  border: none;
+  border-radius: 5px;
+  color: #0a1525;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+}
+
+#start-game:hover {
+  background: linear-gradient(to right, #f0a030, #e08010);
+  transform: translateY(-2px);
+}
+
+#start-game:active {
+  transform: translateY(1px);
+}
+
+/* Game UI */
+#game-ui {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#game-ui > div {
+  pointer-events: auto;
+}
+
+#health-bar-container {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  width: 200px;
+}
+
+.ui-label {
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+  color: #f0d080;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.bar-container {
+  width: 100%;
+  height: 15px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 7px;
+  overflow: hidden;
+  border: 1px solid #f0d080;
+}
+
+#health-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(to right, #30f080, #30a0f0);
+  transition: width 0.3s ease-out;
+}
+
+#wind-indicator {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 5px;
+  padding: 10px;
+  border: 1px solid #f0d080;
+}
+
+#wind-direction-arrow {
+  width: 30px;
+  height: 30px;
+  margin: 5px auto;
+  background-image: url("assets/wind-arrow.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  transition: transform 0.5s ease-out;
+}
+
+#wind-strength {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #f0f0f0;
+}
+
+#cannon-status {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 5px;
+  padding: 10px;
+  border: 1px solid #f0d080;
+}
+
+#cannon-ready {
+  text-align: center;
+  font-size: 1rem;
+  color: #30f080;
+  font-weight: bold;
+}
+
+#cannon-ready.reloading {
+  color: #f03030;
+}
+
+#mini-map-container {
+  position: absolute;
+  bottom: 20px;
+  right: 120px;
+  width: 150px;
+  height: 150px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 5px;
+  padding: 5px;
+  border: 1px solid #f0d080;
+}
+
+#mini-map {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  background-color: #103050;
+}
+
+#player-list-toggle,
+#controls-help {
+  position: absolute;
+  top: 20px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 5px;
+  padding: 5px;
+  border: 1px solid #f0d080;
+}
+
+#player-list-toggle {
+  left: 20px;
+}
+
+#controls-help {
+  left: 100px;
+}
+
+#player-list-toggle button,
+#controls-help button {
+  background: linear-gradient(to right, #f0d080, #f0a030);
+  border: none;
+  border-radius: 3px;
+  color: #0a1525;
+  padding: 5px 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+#player-list,
+#controls-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(10, 20, 30, 0.9);
+  border-radius: 10px;
+  padding: 20px;
+  width: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 2px solid #f0d080;
+  z-index: 100;
+}
+
+#player-list h3,
+#controls-panel h3 {
+  color: #f0d080;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+#players {
+  list-style: none;
+  margin-bottom: 15px;
+}
+
+#players li {
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(240, 208, 128, 0.3);
+}
+
+#controls-panel ul {
+  list-style: none;
+  margin-bottom: 15px;
+}
+
+#controls-panel li {
+  padding: 5px 0;
+}
+
+#close-player-list,
+#close-controls {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  background: linear-gradient(to right, #f0d080, #f0a030);
+  border: none;
+  border-radius: 5px;
+  color: #0a1525;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+/* Game Over Screen */
+#game-over {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 500;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.game-over-container {
+  background-color: rgba(10, 20, 30, 0.9);
+  border-radius: 10px;
+  padding: 2rem;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  border: 2px solid #f03030;
+}
+
+.game-over-container h2 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: #f03030;
+}
+
+.game-over-container p {
+  font-size: 1.2rem;
+  color: #f0f0f0;
+}
+
+#respawn-timer {
+  font-weight: bold;
+  color: #f0d080;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .login-container h1 {
+    font-size: 2rem;
+  }
+
+  .login-container h2 {
+    font-size: 1rem;
+  }
+
+  #health-bar-container {
+    width: 150px;
+  }
+
+  #mini-map-container {
+    width: 120px;
+    height: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  #health-bar-container {
+    width: 120px;
+  }
+
+  #mini-map-container {
+    width: 100px;
+    height: 100px;
+    right: 100px;
+  }
+
+  #player-list-toggle,
+  #controls-help {
+    padding: 3px;
+  }
+
+  #player-list-toggle button,
+  #controls-help button {
+    font-size: 0.8rem;
+    padding: 4px 8px;
+  }
+}

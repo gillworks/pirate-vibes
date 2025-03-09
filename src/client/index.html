@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pirate Vibes - Multiplayer Pirate Ship Simulator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="loading-screen">
+      <div class="loading-container">
+        <h1>Pirate Vibes</h1>
+        <div class="loading-bar-container">
+          <div id="loading-bar"></div>
+        </div>
+        <p id="loading-text">Loading the high seas...</p>
+      </div>
+    </div>
+
+    <div id="login-screen">
+      <div class="login-container">
+        <h1>Pirate Vibes</h1>
+        <h2>Multiplayer Pirate Ship Simulator</h2>
+
+        <div class="form-group">
+          <label for="player-name">Pirate Name:</label>
+          <input
+            type="text"
+            id="player-name"
+            placeholder="Enter your pirate name"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="ship-type">Choose Your Ship:</label>
+          <select id="ship-type">
+            <option value="sloop">Sloop - Fast but fragile</option>
+            <option value="brigantine">Brigantine - Balanced</option>
+            <option value="frigate">Frigate - Strong firepower</option>
+            <option value="galleon">Galleon - Slow but powerful</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Ship Customization:</label>
+          <div class="color-picker">
+            <div
+              class="color-option"
+              data-color="#8B4513"
+              style="background-color: #8b4513"
+            ></div>
+            <div
+              class="color-option"
+              data-color="#A0522D"
+              style="background-color: #a0522d"
+            ></div>
+            <div
+              class="color-option"
+              data-color="#D2691E"
+              style="background-color: #d2691e"
+            ></div>
+            <div
+              class="color-option"
+              data-color="#CD853F"
+              style="background-color: #cd853f"
+            ></div>
+            <div
+              class="color-option"
+              data-color="#DEB887"
+              style="background-color: #deb887"
+            ></div>
+          </div>
+        </div>
+
+        <button id="start-game">Set Sail!</button>
+      </div>
+    </div>
+
+    <div id="game-ui" class="hidden">
+      <div id="health-bar-container">
+        <div class="ui-label">Ship Health</div>
+        <div class="bar-container">
+          <div id="health-bar"></div>
+        </div>
+      </div>
+
+      <div id="wind-indicator">
+        <div class="ui-label">Wind</div>
+        <div id="wind-direction-arrow"></div>
+        <div id="wind-strength"></div>
+      </div>
+
+      <div id="cannon-status">
+        <div class="ui-label">Cannons</div>
+        <div id="cannon-ready">Ready</div>
+      </div>
+
+      <div id="mini-map-container">
+        <div id="mini-map"></div>
+      </div>
+
+      <div id="player-list-toggle">
+        <button id="show-players">Players</button>
+      </div>
+
+      <div id="player-list" class="hidden">
+        <h3>Pirates Online</h3>
+        <ul id="players"></ul>
+        <button id="close-player-list">Close</button>
+      </div>
+
+      <div id="controls-help">
+        <button id="show-controls">Controls</button>
+      </div>
+
+      <div id="controls-panel" class="hidden">
+        <h3>Controls</h3>
+        <ul>
+          <li>W/S - Forward/Backward</li>
+          <li>A/D - Turn Left/Right</li>
+          <li>Q/E - Adjust Sails</li>
+          <li>Space - Fire Cannons</li>
+          <li>Shift - Boost (Ram)</li>
+          <li>M - Toggle Map</li>
+          <li>Tab - Player List</li>
+          <li>Esc - Menu</li>
+        </ul>
+        <button id="close-controls">Close</button>
+      </div>
+    </div>
+
+    <div id="game-over" class="hidden">
+      <div class="game-over-container">
+        <h2>Ship Destroyed!</h2>
+        <p>Ye be respawning in <span id="respawn-timer">5</span> seconds...</p>
+      </div>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+
+    <script src="bundle.js"></script>
+  </body>
+</html>
