@@ -622,26 +622,47 @@ function createScene() {
   scene.environment = renderTarget.texture;
 
   // Create water with custom shader
+  console.log("Creating custom water shader...");
   const waterGeometry = new THREE.PlaneGeometry(10000, 10000, 100, 100);
 
   // Use our custom water implementation
-  water = new CustomWater(waterGeometry, {
-    textureWidth: 1024,
-    textureHeight: 1024,
-    waterNormals: assets.textures.water,
-    sunDirection: sun.clone().normalize(),
-    sunColor: 0xffffff,
-    waterColor: 0x0066cc,
-    deepWaterColor: 0x001e3f,
-    distortionScale: 3.7,
-    fog: scene.fog !== undefined,
-    waveHeight: 1.0,
-    waveSpeed: 1.0,
-    reflectivity: 0.8,
-  });
+  try {
+    water = new CustomWater(waterGeometry, {
+      textureWidth: 1024,
+      textureHeight: 1024,
+      waterNormals: assets.textures.water,
+      sunDirection: sun.clone().normalize(),
+      sunColor: 0xffffff,
+      waterColor: 0x0088ff,
+      deepWaterColor: 0x001e3f,
+      distortionScale: 3.7,
+      fog: scene.fog !== undefined,
+      waveHeight: 1.0,
+      waveSpeed: 1.0,
+      reflectivity: 0.8,
+    });
 
-  water.rotation.x = -Math.PI / 2;
-  scene.add(water);
+    water.rotation.x = -Math.PI / 2;
+    scene.add(water);
+    console.log("Custom water shader created and added to scene");
+  } catch (error) {
+    console.error("Error creating custom water:", error);
+
+    // Fallback to standard water if custom water fails
+    console.log("Falling back to standard water...");
+    water = new Water(waterGeometry, {
+      textureWidth: 1024,
+      textureHeight: 1024,
+      waterNormals: assets.textures.water,
+      sunDirection: sun.clone().normalize(),
+      sunColor: 0xffffff,
+      waterColor: 0x001e0f,
+      distortionScale: 3.7,
+      fog: scene.fog !== undefined,
+    });
+    water.rotation.x = -Math.PI / 2;
+    scene.add(water);
+  }
 
   // Add ambient light
   const ambientLight = new THREE.AmbientLight(0x404040, 2);

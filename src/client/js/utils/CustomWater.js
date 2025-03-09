@@ -7,6 +7,8 @@ import { OceanShader } from "../shaders/OceanShader.js";
 
 class CustomWater extends THREE.Mesh {
   constructor(geometry, options = {}) {
+    console.log("CustomWater: Creating custom water with shader");
+
     // Create shader material with our custom shader
     const material = new THREE.ShaderMaterial({
       vertexShader: OceanShader.vertexShader,
@@ -18,6 +20,8 @@ class CustomWater extends THREE.Mesh {
 
     // Call parent constructor with geometry and material
     super(geometry, material);
+
+    console.log("CustomWater: Shader material created");
 
     // Apply options
     this.options = Object.assign(
@@ -37,6 +41,8 @@ class CustomWater extends THREE.Mesh {
       },
       options
     );
+
+    console.log("CustomWater: Options applied", this.options);
 
     // Set up uniforms
     this.material.uniforms.waterColor.value = new THREE.Color(
@@ -131,14 +137,30 @@ class CustomWater extends THREE.Mesh {
     // Set the environment map
     this.material.uniforms.envMap.value =
       this.envMapCamera.renderTarget.texture;
+
+    // Log to confirm initialization
+    console.log("CustomWater: Environment map initialized");
   }
 
   // Update the environment map
   updateEnvironmentMap(renderer, scene) {
+    if (!this.envMapCamera) {
+      console.warn("CustomWater: Environment map camera not initialized");
+      return;
+    }
+
+    // Make water invisible to avoid it being in its own reflection
     this.visible = false;
+
+    // Update the environment map
     this.envMapCamera.position.copy(this.position);
     this.envMapCamera.update(renderer, scene);
+
+    // Make water visible again
     this.visible = true;
+
+    // Log to confirm update
+    console.log("CustomWater: Environment map updated");
   }
 
   // Update the water animation
