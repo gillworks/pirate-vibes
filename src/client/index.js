@@ -11,6 +11,7 @@ import { InputHandler } from "./js/utils/InputHandler.js";
 import { UI } from "./js/utils/UI.js";
 import { SoundManager } from "./js/utils/SoundManager.js";
 import { ParticleSystem } from "./js/utils/ParticleSystem.js";
+import { CustomWater } from "./js/utils/CustomWater.js";
 
 // Game state
 let socket;
@@ -589,24 +590,16 @@ function createScene() {
   // Create sun vector for lighting and water reflections
   sun = new THREE.Vector3();
 
-  // Create water with advanced shader
-  const waterGeometry = new THREE.PlaneGeometry(10000, 10000, 100, 100);
-  water = new Water(waterGeometry, {
-    textureWidth: 1024,
-    textureHeight: 1024,
-    waterNormals: assets.textures.water,
-    sunDirection: new THREE.Vector3(),
-    sunColor: 0xffffff,
-    waterColor: 0x001e0f,
-    distortionScale: 3.7,
-    fog: scene.fog !== undefined,
-    size: 1.0,
-  });
-  water.rotation.x = -Math.PI / 2;
-  scene.add(water);
+  // Configure sun position
+  const parameters = {
+    elevation: 20,
+    azimuth: 180,
+  };
 
-  // Store water uniforms for animation
-  waterUniforms = water.material.uniforms;
+  const phi = THREE.MathUtils.degToRad(90 - parameters.elevation);
+  const theta = THREE.MathUtils.degToRad(parameters.azimuth);
+
+  sun.setFromSphericalCoords(1, phi, theta);
 
   // Create sky
   sky = new Sky();
@@ -619,20 +612,7 @@ function createScene() {
   skyUniforms["rayleigh"].value = 2;
   skyUniforms["mieCoefficient"].value = 0.005;
   skyUniforms["mieDirectionalG"].value = 0.8;
-
-  // Configure sun position
-  const parameters = {
-    elevation: 20,
-    azimuth: 180,
-  };
-
-  const phi = THREE.MathUtils.degToRad(90 - parameters.elevation);
-  const theta = THREE.MathUtils.degToRad(parameters.azimuth);
-
-  sun.setFromSphericalCoords(1, phi, theta);
-
   skyUniforms["sunPosition"].value.copy(sun);
-  waterUniforms["sunDirection"].value.copy(sun).normalize();
 
   // Create environment map for reflections
   const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -640,6 +620,28 @@ function createScene() {
   sceneEnv.add(sky);
   const renderTarget = pmremGenerator.fromScene(sceneEnv);
   scene.environment = renderTarget.texture;
+
+  // Create water with custom shader
+  const waterGeometry = new THREE.PlaneGeometry(10000, 10000, 100, 100);
+
+  // Use our custom water implementation
+  water = new CustomWater(waterGeometry, {
+    textureWidth: 1024,
+    textureHeight: 1024,
+    waterNormals: assets.textures.water,
+    sunDirection: sun.clone().normalize(),
+    sunColor: 0xffffff,
+    waterColor: 0x0066cc,
+    deepWaterColor: 0x001e3f,
+    distortionScale: 3.7,
+    fog: scene.fog !== undefined,
+    waveHeight: 1.0,
+    waveSpeed: 1.0,
+    reflectivity: 0.8,
+  });
+
+  water.rotation.x = -Math.PI / 2;
+  scene.add(water);
 
   // Add ambient light
   const ambientLight = new THREE.AmbientLight(0x404040, 2);
@@ -919,22 +921,36 @@ function animate() {
     const time = performance.now() * 0.001;
 
     // Update water animation
-    if (waterUniforms) {
-      waterUniforms["time"].value = time;
+    if (water && water.update) {
+      // Update water animation
+      water.update(time);
+
+      // Update environment map every 10 frames for better performance
+      if (Math.floor(time * 60) % 10 === 0) {
+        water.updateEnvironmentMap(renderer, scene);
+      }
     }
 
     // Make waves higher when wind is stronger
-    if (worldState && worldState.wind && waterUniforms) {
+    if (worldState && worldState.wind && water) {
       const windStrength = worldState.wind.strength || 0.5;
 
-      // Adjust distortion scale based on wind strength
-      if (waterUniforms["distortionScale"]) {
-        waterUniforms["distortionScale"].value = 3.0 + windStrength * 5.0;
+      // Set wave height based on wind strength
+      if (water.setWaveHeight) {
+        water.setWaveHeight(0.5 + windStrength * 1.5);
+      }
+
+      // Set wave speed based on wind strength
+      if (water.setWaveSpeed) {
+        water.setWaveSpeed(0.5 + windStrength);
       }
 
       // Adjust wave direction based on wind direction
-      if (worldState.wind.direction !== undefined) {
+      if (worldState.wind.direction !== undefined && water.setWaveDirection) {
         const windDir = worldState.wind.direction;
+        water.setWaveDirection(
+          new THREE.Vector2(Math.cos(windDir), Math.sin(windDir))
+        );
 
         // Gradually rotate sun position based on time of day
         const sunPhi = THREE.MathUtils.degToRad(90 - 20); // Fixed elevation at 20 degrees
@@ -946,8 +962,8 @@ function animate() {
           sky.material.uniforms["sunPosition"].value.copy(sun);
         }
 
-        if (waterUniforms["sunDirection"]) {
-          waterUniforms["sunDirection"].value.copy(sun).normalize();
+        if (water.setSunDirection) {
+          water.setSunDirection(sun.clone().normalize());
         }
       }
     }
@@ -999,16 +1015,26 @@ function animate() {
 
 // Update water properties based on server data
 function updateWaterProperties(waterData) {
-  if (!water || !waterUniforms) return;
+  if (!water) return;
 
-  // Update distortion scale based on turbulence
-  if (waterData.turbulence !== undefined && waterUniforms["distortionScale"]) {
-    waterUniforms["distortionScale"].value = waterData.turbulence * 10.0;
+  // Update wave height
+  if (waterData.waveHeight !== undefined && water.setWaveHeight) {
+    water.setWaveHeight(waterData.waveHeight);
   }
 
-  // Update wave size
-  if (waterData.waveHeight !== undefined && waterUniforms["size"]) {
-    waterUniforms["size"].value = waterData.waveHeight * 4.0;
+  // Update wave speed
+  if (waterData.waveSpeed !== undefined && water.setWaveSpeed) {
+    water.setWaveSpeed(waterData.waveSpeed);
+  }
+
+  // Update wave direction
+  if (waterData.waveDirection !== undefined && water.setWaveDirection) {
+    water.setWaveDirection(
+      new THREE.Vector2(
+        Math.cos(waterData.waveDirection),
+        Math.sin(waterData.waveDirection)
+      )
+    );
   }
 
   console.log("Water properties updated:", waterData);
